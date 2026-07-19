@@ -1,0 +1,11 @@
+streamlit
+pandas
+numpy
+scikit-learn
+xgboost==2.1.4
+shap==0.48.0
+matplotlib
+joblib
+optuna
+mlflow
+scipy
