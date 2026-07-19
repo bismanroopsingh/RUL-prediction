@@ -187,12 +187,11 @@ if predict_button:
 
     st.subheader("Engine Health")
 
-    health_score = predicted_rul/ 125
+    health_score = float(predicted_rul) / 125.0
 
-    # Keep value between 0 and 1
     health_score = max(0.0, min(1.0, health_score))
 
-    st.progress(health_score)
+    st.progress(float(health_score))
             ########################################################
     # Prediction Table
     ########################################################
