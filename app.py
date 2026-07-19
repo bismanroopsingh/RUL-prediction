@@ -1,10 +1,10 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-
+from report_generator import generate_report
 from config import TEST_PATH
 from src.data_loader import load_test_data
-
+from src.validator import validate
 from predict_engine import PredictionEngine
 from explain_engine import ExplainEngine
 st.set_page_config(
@@ -43,25 +43,73 @@ test_data = load_dataset()
 predictor, explainer = load_models()
 st.sidebar.title("Settings")
 
-engine_list = sorted(
-    test_data["engine_id"].unique()
-)
+input_method = st.sidebar.radio(
 
-selected_engine = st.sidebar.selectbox(
+    "Input Source",
 
-    "Select Engine",
+    [
 
-    engine_list,
+        "NASA Dataset",
 
-)
+        "Upload CSV"
 
-predict_button = st.sidebar.button(
+    ])
+if input_method == "NASA Dataset":
 
-    "Predict RUL",
+    engine_list = sorted(test_data["engine_id"].unique())
 
-    use_container_width=True,
+    selected_engine = st.sidebar.selectbox(
+        "Select Engine",
+        engine_list
+    )
 
-)
+    engine_df = test_data[
+        test_data["engine_id"] == selected_engine
+    ].copy()
+
+    predict_button = st.sidebar.button(
+        "Predict",
+        use_container_width=True
+    )
+
+else:
+
+    uploaded_file = st.sidebar.file_uploader(
+        "Upload Engine CSV",
+        type=["csv"]
+    )
+
+    if uploaded_file is not None:
+
+        engine_df = pd.read_csv(uploaded_file)
+
+        missing = validate(engine_df)
+
+        if missing:
+
+            st.error(f"Missing columns: {missing}")
+
+            st.stop()
+
+        st.success("CSV Uploaded Successfully!")
+        st.write(f"Rows: {len(engine_df)}")
+        st.write(f"Columns: {len(engine_df.columns)}")
+
+        st.subheader("Preview")
+
+        st.dataframe(engine_df.head())
+
+        predict_button = st.sidebar.button(
+            "Predict",
+            use_container_width=True
+        )
+
+    else:
+
+        predict_button = False
+
+
+
 ############################################################
 # Prediction
 ############################################################
@@ -70,13 +118,8 @@ if predict_button:
 
     ########################################################
     # Select Engine
-    ########################################################
-
-    engine_df = test_data[
-
-        test_data["engine_id"] == selected_engine
-
-    ].copy()
+    #######################################################
+    
 
     ########################################################
     # Run Prediction
@@ -185,6 +228,10 @@ if predict_button:
     st.subheader("Top Sensors Affecting Prediction")
 
     importance = shap_result["importance"]
+    pdf = generate_report(
+    prediction,
+    importance
+    )
 
     st.dataframe(
 
@@ -215,17 +262,49 @@ if predict_button:
     )
     st.divider()
 
-    st.download_button(
+    col1, col2 = st.columns(2)
 
-        label="Download Prediction",
+    with col1:
 
-        data=prediction_df.to_csv(index=False),
+        st.download_button(
 
-        file_name=f"Engine_{selected_engine}_Prediction.csv",
+            label=" Download CSV",
 
-        mime="text/csv",
+            data=prediction_df.to_csv(index=False),
 
-    )
+            file_name=(
+                f"Engine_{selected_engine}_Prediction.csv"
+                if input_method == "NASA Dataset"
+                else "Uploaded_Engine_Prediction.csv"
+            ),
+
+            mime="text/csv",
+
+            use_container_width=True
+
+        )
+
+    with col2:
+
+        st.download_button(
+
+            label=" Download PDF Report",
+
+            data=pdf,
+
+            file_name=(
+                f"Engine_{selected_engine}_Prediction_Report.pdf"
+                if input_method == "NASA Dataset"
+                else "Uploaded_Engine_Prediction_Report.pdf"
+            ),
+
+            mime="application/pdf",
+
+            use_container_width=True
+
+        )
+
+    
 else:
 
     st.info(
